@@ -6,5 +6,6 @@ export type ChannelTextCreation = {
   description?: string;
 };
 
-export type KeyType = string | symbol | number | any;
+export type KeyType = string | symbol | number;
 export type RecordType = Record<KeyType, unknown>;
+export type LogLike = string | Array<LogLike> | RecordType;

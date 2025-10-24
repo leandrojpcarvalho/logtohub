@@ -20,39 +20,26 @@ const logger = new DiscordLogger({
 });
 
 // Conectar ao Discord
-await logger.connect();
+await logger.start();
 
 // Enviar mensagens de log
-await logger.log({
-  level: 'error',
-  message: 'Erro na API de pagamentos',
-  metadata: {
-    statusCode: 500,
-    error: 'Gateway timeout'
-  }
+logger.log("O usuário não conseguiu logar");
+
+logger.log({
+    messagem: "O usuário não conseguiu logar"
 });
 
-// Logs informativos
-await logger.log({
-  level: 'info',
-  message: 'Pedido processado com sucesso',
-  metadata: { orderId: '123' }
-});
+logger.error("O serviço parou de funcionar")
 
-// Logs de alerta
-await logger.log({
-  level: 'warn',
-  message: 'Rate limit próximo do limite',
-  metadata: { current: 950, limit: 1000 }
-});
-```
+### getChannel
 
-## Níveis de Log
+Você pode pegar uma lista de qualquer canal do servidor com a função, e isso te retornará um canal:
 
-- `error`: Erros que precisam de atenção imediata
-- `warn`: Avisos importantes mas não críticos
-- `info`: Informações gerais do sistema
-- `debug`: Informações detalhadas para debugging
+
+const channel = logger.getChannel("Outro canal fora do bot")
+
+channel.sendMessage("Nova msg no canal!")
+
 
 ## Configuração
 
@@ -60,9 +47,7 @@ await logger.log({
 
 ```typescript
 const logger = new DiscordLogger({
-  token: 'seu-token-do-discord',
-  defaultChannelName: 'logs-producao', // opcional, padrão: 'logtohub'
-  guildId: 'id-do-servidor', // opcional, usa o primeiro servidor disponível se não especificado
+  APIToken: 'seu-token-do-discord',
 });
 ```
 

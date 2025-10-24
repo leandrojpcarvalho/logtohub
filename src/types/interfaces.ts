@@ -28,8 +28,8 @@ export interface Platform {
 }
 
 export interface PlatformDiscordConstructor {
-  options: ClientOptions;
   APIToken: string;
+  options?: ClientOptions;
   defaultChannelBots?: ChannelTextCreation[];
 }
 
