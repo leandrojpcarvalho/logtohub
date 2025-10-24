@@ -18,25 +18,28 @@ import * as utils from "./utils.js";
 import * as Types from "../types/index.js";
 import { BotError } from "./BotError.js";
 
-export class DiscordLogger extends Client implements Types.Platform {
+export class DiscordLogger implements Types.Platform {
   public readonly platform = Types.Platforms.DISCORD;
   private internalChannels: Map<string, ChannelBotMessage> = new Map();
   private botToken: string;
+  private clientInstance: Client;
+  private defaultChannel: ChannelTextCreation[];
 
   constructor({
     options,
     APIToken,
     defaultChannelBots,
   }: Types.PlatformDiscordConstructor) {
-    super(options);
+    this.clientInstance = new Client(
+      options ?? {
+        intents: "AutoModerationConfiguration",
+      }
+    );
     this.botToken = APIToken;
-    this.once("clientReady", async () => {
-      await this.botChannels(
-        defaultChannelBots ?? [botCommunication, botCommunicationError]
-      );
-      this.startChatResponse();
-      console.log("Bot on!!!".green);
-    });
+    this.defaultChannel = defaultChannelBots ?? [
+      botCommunication,
+      botCommunicationError,
+    ];
   }
 
   get allChannels() {
@@ -44,7 +47,16 @@ export class DiscordLogger extends Client implements Types.Platform {
   }
 
   public async start() {
-    this.login(this.botToken);
+    await this.clientInstance.login(this.botToken);
+
+    await new Promise((resolve) =>
+      this.clientInstance.once("clientReady", async () => {
+        await this.botChannels(this.defaultChannel);
+        this.startChatResponse();
+        console.log("Bot on!!! ✅");
+        resolve(null);
+      })
+    );
   }
 
   public async createChannel(
@@ -52,7 +64,7 @@ export class DiscordLogger extends Client implements Types.Platform {
     guildId: string,
     botOnly = false
   ): Promise<Types.Channel> {
-    const guild = await this.guilds.fetch(guildId);
+    const guild = await this.clientInstance.guilds.fetch(guildId);
 
     const name = this.generateChannelName(options);
     const internalChannelType = this.channelTypeResolve(name);
@@ -64,7 +76,7 @@ export class DiscordLogger extends Client implements Types.Platform {
             deny: [PermissionsBitField.Flags.SendMessages],
           },
           {
-            id: this.user?.id!, // Bot
+            id: this.clientInstance.user?.id!, // Bot
             allow: [PermissionsBitField.Flags.SendMessages],
           },
         ]
@@ -94,7 +106,7 @@ export class DiscordLogger extends Client implements Types.Platform {
   }
 
   private async botChannels(defaultChannels: ChannelTextCreation[]) {
-    const guilds = await this.guilds.fetch();
+    const guilds = await this.clientInstance.guilds.fetch();
 
     for (const [, guild] of guilds) {
       await this.mapServerChannels(guild.id);
@@ -160,7 +172,7 @@ export class DiscordLogger extends Client implements Types.Platform {
   }
 
   private async mapServerChannels(guildId: string) {
-    const guildInfo = await this.guilds.fetch(guildId);
+    const guildInfo = await this.clientInstance.guilds.fetch(guildId);
     const existingChannels = await guildInfo.channels.fetch();
 
     existingChannels
@@ -179,7 +191,7 @@ export class DiscordLogger extends Client implements Types.Platform {
       });
   }
 
-  private async notify(message: any) {
+  async log(message: Types.LogLike) {
     const notifyChannel = this.internalChannels.get(
       InternalChannelType.BotNotification
     );
@@ -215,24 +227,19 @@ export class DiscordLogger extends Client implements Types.Platform {
     }
   }
 
-  private async error(message: any, action?: any) {
-    const actionToString = utils.convertDataToString(action);
-
-    const formattedError =
-      actionToString !== "" ? `${message}\n${actionToString}` : message;
-
+  async error(message: Types.LogLike) {
     const errorChannel = this.internalChannels.get(
       InternalChannelType.BotError
     );
     if (errorChannel) {
-      await errorChannel.sendMessage(formattedError);
+      await errorChannel.sendMessage(message);
       return;
     }
-    await this.notify(formattedError);
+    await this.log(message);
   }
 
   private startChatResponse() {
-    this.on("messageCreate", async (message) => {
+    this.clientInstance.on("messageCreate", async (message) => {
       if (message.author.bot) return;
 
       const content = message.content.toLocaleLowerCase();
@@ -240,14 +247,14 @@ export class DiscordLogger extends Client implements Types.Platform {
         const cleanCommand = content.replace("!", "");
         switch (cleanCommand) {
           case "listchannels":
-            this.notify(
+            this.log(
               Array.from(this.internalChannels.entries()).map(
                 ([str, ch]) => `${str} - ${ch.name}`
               )
             );
             break;
           default:
-            this.error("Comando não implementado", content);
+            this.error("Comando não implementado");
         }
       }
     });
