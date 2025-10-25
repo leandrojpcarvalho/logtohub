@@ -1,36 +1,54 @@
 import { ClientOptions } from "discord.js";
-import { ChannelTextCreation, InternalChannelType } from "../Discord/index.js";
+
+import {
+  ChannelType,
+  CreateTextChannelProps,
+  LogLike,
+  SendMessage,
+} from "../index.js";
 
 export enum Platforms {
   DISCORD = "discord",
 }
 
+export enum Status {
+  UPDATING = "updating",
+  READY = "ready",
+  CREATING = "creating",
+}
+
 export interface Channel {
   name: string;
-  type: InternalChannelType;
+  type: ChannelType;
+
+  sendMessage(message: LogLike): Promise<void>;
+}
+
+export interface VoiceChannel extends Channel {}
+export interface TextChannel extends Channel {
   description?: string | null;
   groupId?: string | number;
-
-  sendMessage(message: unknown): Promise<void>;
 }
 
 export interface Platform {
-  allChannels: Map<string, Channel>;
+  allChannels: Map<string, TextChannel>;
   platform: Platforms;
+  status: Status;
 
-  getChannel(channelName: string): Channel | null;
+  getChannel(channelName: string): TextChannel | null;
   createChannel(
-    textChannelProps: ChannelTextCreation,
+    textChannelProps: CreateTextChannelProps,
     groupId?: string,
     isBot?: boolean
-  ): Promise<Channel>;
-  start(): Promise<void>;
+  ): Promise<TextChannel>;
+  log(messageToSend: SendMessage): Promise<void>;
 }
 
 export interface PlatformDiscordConstructor {
   APIToken: string;
   options?: ClientOptions;
-  defaultChannelBots?: ChannelTextCreation[];
+  channelBots?: CreateTextChannelProps[];
+  internalLogs?: boolean;
 }
 
 //TODO: Implement chat on channels to execute pre-set commands

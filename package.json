@@ -1,6 +1,6 @@
 {
   "name": "logtohub",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Hub de logging multi-plataforma com suporte a Discord, Telegram, Slack e outros",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -9,7 +9,8 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
     }
   },
   "files": [
