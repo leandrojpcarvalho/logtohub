@@ -3,6 +3,7 @@ import { ClientOptions } from "discord.js";
 import {
   ChannelType,
   CreateTextChannelProps,
+  Environment,
   LogLike,
   SendMessage,
 } from "../index.js";
@@ -20,8 +21,10 @@ export enum Status {
 export interface Channel {
   name: string;
   type: ChannelType;
+  env?: string;
 
   sendMessage(message: LogLike): Promise<void>;
+  removeChannel(): Promise<void>
 }
 
 export interface VoiceChannel extends Channel {}
@@ -43,12 +46,12 @@ export interface Platform {
   ): Promise<TextChannel>;
   log(messageToSend: SendMessage): Promise<void>;
 }
-
-export interface PlatformDiscordConstructor {
+export interface PlatformDiscordConstructor<T extends string[] = string[]> {
   APIToken: string;
   options?: ClientOptions;
   channelBots?: CreateTextChannelProps[];
   internalLogs?: boolean;
+  env?: Environment<T>;
 }
 
 //TODO: Implement chat on channels to execute pre-set commands

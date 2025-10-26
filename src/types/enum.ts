@@ -1,7 +1,7 @@
 export enum ChannelType {
-  BotError = "BotError",
-  BotNotification = "BotNotification",
-  Common = "Common",
+  BotError = "bot-error",
+  BotNotification = "bot-notification",
+  Common = "common",
 }
 
 export enum BotErrorModules {

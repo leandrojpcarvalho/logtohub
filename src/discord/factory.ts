@@ -2,6 +2,7 @@ import {
   TextChannel as DiscordTextChannel,
   Channel as DiscordChannel,
   VoiceChannel as DiscordVoiceChannel,
+  ChannelType as DiscordChannelType,
 } from "discord.js";
 
 import {
@@ -14,19 +15,52 @@ import {
   Channel,
   VoiceChannel,
 } from "../index.js";
+import { DiscordChannelAdapterProps } from "./type.js";
+import { generateChannelName } from "./utils.js";
 
-class InternalTextChannel implements TextChannel {
-  constructor(private channel: DiscordTextChannel, public type: ChannelType) {}
+abstract class AbstractDiscordChannel<
+  T extends DiscordTextChannel | DiscordVoiceChannel
+> implements Channel
+{
+  constructor(
+    protected channel: T,
+    public type: ChannelType,
+    public env?: string
+  ) {}
 
-  get description() {
-    return this.channel.topic;
+  abstract sendMessage(message: LogLike): Promise<void>;
+
+  get name() {
+    return this.channel.name;
   }
 
   get groupId() {
     return this.channel.guildId;
   }
-  get name() {
-    return this.channel.name;
+
+  async removeChannel(): Promise<void> {
+    if (
+      this.channel.type === DiscordChannelType.GuildText &&
+      this.channel.deletable
+    ) {
+      try {
+        await this.channel.delete("Removido pelo bot");
+      } catch (err) {
+        console.error("Erro ao remover canal:", err);
+      }
+    }
+  }
+}
+class InternalTextChannel
+  extends AbstractDiscordChannel<DiscordTextChannel>
+  implements TextChannel
+{
+  constructor(channel: DiscordTextChannel, type: ChannelType, env?: string) {
+    super(channel, type, env);
+  }
+
+  get description() {
+    return this.channel.topic;
   }
 
   async sendMessage(message: LogLike) {
@@ -37,8 +71,13 @@ class InternalTextChannel implements TextChannel {
   }
 }
 
-class InternalVoiceChannel implements VoiceChannel {
-  constructor(private channel: DiscordVoiceChannel, public type: ChannelType) {}
+class InternalVoiceChannel
+  extends AbstractDiscordChannel<DiscordVoiceChannel>
+  implements VoiceChannel
+{
+  constructor(channel: DiscordVoiceChannel, type: ChannelType, env?: string) {
+    super(channel, type, env);
+  }
 
   get name() {
     return this.channel.name;
@@ -54,16 +93,17 @@ class InternalVoiceChannel implements VoiceChannel {
   }
 }
 
-export function discordChannelAdapter(
-  discordChannel: DiscordChannel,
-  type: ChannelType
-): Channel {
+export function discordChannelAdapter({
+  discordChannel,
+  type,
+  env,
+}: DiscordChannelAdapterProps): Channel {
   //criar função para identificar bot e canais comuns do discord
   if (discordChannel instanceof DiscordTextChannel) {
-    return new InternalTextChannel(discordChannel, type);
+    return new InternalTextChannel(discordChannel, type, env);
   }
   if (discordChannel instanceof DiscordVoiceChannel) {
-    return new InternalVoiceChannel(discordChannel, ChannelType.Common);
+    return new InternalVoiceChannel(discordChannel, ChannelType.Common, env);
   }
 
   throw new BotError("Tipo de canal não suportado", BotErrorModules.Instance);

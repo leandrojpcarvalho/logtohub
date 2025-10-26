@@ -4,12 +4,21 @@ export type CreateTextChannelProps = {
   type: ChannelType;
   name: string;
   description?: string;
-  isBot?: boolean;
+  botOnly?: boolean;
+  env?: string;
 };
 
-export type CreationChannels = {
+export type CreationChannels<T extends string[] = string[]> = {
   channels: CreateTextChannelProps[];
   groupId?: string | number;
+  env?: Environment<T>;
+};
+
+export type Environment<T extends string[]> = T | EnvironmentProps<T>;
+
+export type EnvironmentProps<T extends string[]> = {
+  env: T;
+  ignoredChannelsByEnv: Record<T[number], string[]>;
 };
 
 export type SendMessage = {

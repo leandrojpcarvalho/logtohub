@@ -13,12 +13,13 @@ import {
   Status,
   BotError,
   convertDataToString,
-  normalizeDiscordChannelNameToCapitalizedName,
+  Environment,
 } from "./index.js";
 
 export abstract class Logger implements Platform {
   private _allChannels = new Map<string, TextChannel>();
   private _internalLogs: boolean | undefined;
+
   platform: Platforms;
 
   private _status: Status = Status.CREATING;
@@ -34,7 +35,9 @@ export abstract class Logger implements Platform {
     internalLogs?: boolean
   ) {
     if (existingChannels.length > 0) {
-      existingChannels.map((ch) => this.addChannel(ch));
+      existingChannels.forEach((ch) => {
+        this.addChannel(ch);
+      });
     }
     this.platform = platform;
     this._internalLogs = internalLogs;
@@ -45,17 +48,14 @@ export abstract class Logger implements Platform {
   }
 
   private addChannel(channel: TextChannel) {
-    const formattedName = normalizeDiscordChannelNameToCapitalizedName(
-      channel.name
-    );
-    this._allChannels.set(formattedName, channel);
+    this._allChannels.set(channel.name, channel);
     this.internalLog(
-      `Canal ${formattedName} adicionado com sucesso aos mapeados`
+      `Canal ${channel.name} adicionado com sucesso aos mapeados`
     );
   }
 
   private validChannelToCreate(channel: CreateTextChannelProps) {
-    const isMappedChannel = this.getChannelByName(channel.name);
+    const isMappedChannel = this.getByCompleteName(channel);
     if (isMappedChannel) {
       throw new BotError(
         BotErrorMessage.DUPLICATED_CHANNEL,
@@ -75,10 +75,55 @@ export abstract class Logger implements Platform {
     return newChannel;
   }
 
-  public async processChannels({ channels, groupId }: CreationChannels) {
+  private createEnvChannel<T extends string[]>(
+    channels: CreateTextChannelProps[],
+    env?: Environment<T> | T
+  ): CreateTextChannelProps[] {
+    if (!env) return channels;
+
+    const envList = Array.isArray(env) ? env : env.env;
+
+    const channelsList: CreateTextChannelProps[] = [];
+    for (const channel of channels) {
+      for (const key of envList) {
+        const newChannel = this.processEnvironmentProps(channel, key, env);
+        if (newChannel) {
+          channelsList.push(newChannel);
+        }
+      }
+    }
+
+    return channelsList;
+  }
+
+  private processEnvironmentProps<T extends string[]>(
+    channel: CreateTextChannelProps,
+    key: T[number] | string,
+    environment: Environment<T> | T
+  ) {
+    const newChannel = { ...channel };
+
+    if (Array.isArray(environment)) {
+      newChannel.env = key;
+      return newChannel;
+    }
+    const ignoredList = environment.ignoredChannelsByEnv[key] ?? [];
+    if (!ignoredList.includes(newChannel.name)) {
+      newChannel.env = key;
+      return newChannel;
+    }
+  }
+
+  public async processChannels<T extends string[]>({
+    channels,
+    groupId,
+    env,
+  }: CreationChannels<T>) {
     const errors = [];
 
-    for (const channel of channels) {
+    const channelsToCreate = this.createEnvChannel(channels, env);
+
+    for (const channel of channelsToCreate) {
       try {
         const newChannel = await this.processChannel(channel, groupId);
         this.addChannel(newChannel);
@@ -130,17 +175,29 @@ export abstract class Logger implements Platform {
     );
   }
 
-  private getChannelArray() {
+  protected getChannelArray() {
     return Array.from(this._allChannels.values());
   }
 
   private findSomethingOnChannel(key: keyof TextChannel, toFind: string) {
     return this.getChannelArray().find((ch) => {
-      const normalizedStr = String(ch[key]).replaceAll("-", " ").toLowerCase();
-      const normalizedToFind = toFind.toLowerCase();
+      const normalizedStr = String(ch[key]).toLowerCase().replaceAll(" ", "-");
+      const normalizedFind = toFind.toLowerCase().replaceAll(" ", "-");
 
-      return normalizedStr.includes(normalizedToFind);
+      return normalizedStr.includes(normalizedFind);
     });
+  }
+
+  private getByCompleteName(data: CreateTextChannelProps) {
+    return (
+      this.getChannelArray().find((ch) => {
+        return (
+          ch.name.includes(data.name.toLowerCase().replaceAll(" ", "-")) &&
+          ch.type === data.type &&
+          ch.env === data.env
+        );
+      }) ?? null
+    );
   }
 
   private getChannelByType(type: string): TextChannel | null {
@@ -151,7 +208,12 @@ export abstract class Logger implements Platform {
     return this.findSomethingOnChannel("name", name) ?? null;
   }
 
-  public getChannel(nameOrType: string): TextChannel | null {
+  public getChannel(
+    nameOrType: string | CreateTextChannelProps
+  ): TextChannel | null {
+    if (typeof nameOrType === "object" && "name" in nameOrType) {
+      return this.getByCompleteName(nameOrType);
+    }
     return (
       this.getChannelByName(nameOrType) || this.getChannelByType(nameOrType)
     );

@@ -5,13 +5,14 @@ import {
   TextChannel,
 } from "discord.js";
 
-import { discordChannelAdapter } from "./factory.js";
-import * as utils from "./utils.js";
 import * as Types from "../types/index.js";
-import { Logger } from "../AbstractLogger.js";
+import * as utils from "./utils.js";
 
+import { discordChannelAdapter } from "./factory.js";
+import { Logger } from "../AbstractLogger.js";
 import { defaultBotChannels } from "./channels/index.js";
 import { CreateTextChannelProps } from "../types/index.js";
+import { defaultBot } from "./index.js";
 
 export class DiscordLogger extends Logger {
   private clientInstance: DiscordClient;
@@ -21,12 +22,9 @@ export class DiscordLogger extends Logger {
     APIToken,
     channelBots,
     internalLogs,
+    env,
   }: Types.PlatformDiscordConstructor): Promise<DiscordLogger> {
-    const discordEv = new DiscordClient(
-      options ?? {
-        intents: "AutoModerationConfiguration",
-      }
-    );
+    const discordEv = new DiscordClient(options ?? defaultBot);
 
     await discordEv.login(APIToken);
 
@@ -38,14 +36,21 @@ export class DiscordLogger extends Logger {
 
         const { channels } = await client.guilds.fetch(guild.id);
 
-        const allChannels = Array.from(await channels.fetch());
+        const allChannels = Array.from((await channels.fetch()).values());
 
         const textChannels = allChannels
-          .map(([, ch]) => ch)
           .filter((ch): ch is TextChannel => ch instanceof TextChannel)
-          .map((ch) => {
-            const type = utils.channelTypeResolve(ch.name);
-            return discordChannelAdapter(ch, type);
+          .map((discordChannel) => {
+            const { topic, env } = utils.decodeChannelByName(
+              discordChannel.name
+            );
+            const type = utils.channelTypeResolve(topic);
+
+            return discordChannelAdapter({
+              discordChannel,
+              type,
+              env,
+            });
           });
 
         const instance = new DiscordLogger(
@@ -53,10 +58,13 @@ export class DiscordLogger extends Logger {
           {
             channels: channelBots ?? defaultBotChannels,
             groupId: guild.id,
+            env,
           },
           client,
           internalLogs
         );
+
+        await instance.startChat();
 
         console.log(`
 ────────────────────────────────────────────
@@ -82,36 +90,65 @@ export class DiscordLogger extends Logger {
     this.processChannels(channelsToCreate);
   }
 
+  public async deleteAllChannels() {
+    const channelsToDelete = this.getChannelArray();
+
+    await Promise.allSettled(
+      channelsToDelete.map(async (ch) => ch.removeChannel())
+    );
+  }
+
   public async createChannel(
     options: CreateTextChannelProps,
-    guildId: string,
-    botOnly = false
+    guildId: string
   ): Promise<Types.TextChannel> {
     const guild = await this.clientInstance.guilds.fetch(guildId);
+    await guild.roles.fetch();
 
     const name = utils.generateChannelName(options);
-    const internalChannelType = utils.channelTypeResolve(name);
 
-    const permissionOverwrites = botOnly
+    const botId = this.clientInstance.user?.id ?? "";
+    const everyoneId = guild.roles.everyone;
+
+    const permissionOverwrites = options.botOnly
       ? [
           {
-            id: guild.roles.everyone, // @everyone
+            id: everyoneId,
             deny: [PermissionsBitField.Flags.SendMessages],
           },
           {
-            id: this.clientInstance.user?.id!, // Bot
+            id: botId,
             allow: [PermissionsBitField.Flags.SendMessages],
           },
         ]
       : [];
 
-    const channel = await guild.channels.create({
+    const type = utils.channelTypeResolve(name);
+    const discordChannel = await guild.channels.create({
       type: DiscordChannelType.GuildText,
       name,
       reason: options.description,
       permissionOverwrites,
     });
 
-    return discordChannelAdapter(channel, internalChannelType);
+    return discordChannelAdapter({
+      discordChannel,
+      type,
+      env: options.env,
+    });
+  }
+
+  public async startChat() {
+    this.internalLog("Serviço de resposta de chat iniciado ✅");
+    this.clientInstance.on("messageCreate", async (message) => {
+      console.log("Mensagem recebida:", message.content);
+      if (message.author.bot) return; // evita loop do próprio bot
+
+      if (message.content === "!deleteAllChannels") {
+        await message.reply("🧹 Executando exclusão de todos os canais...");
+        await this.deleteAllChannels();
+        await message.reply("✅ Todos os canais foram excluídos com sucesso!");
+      }
+    });
   }
 }
