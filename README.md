@@ -11,25 +11,34 @@ npm install logtohub
 ## Uso Básico
 
 ```typescript
-import { DiscordLogger } from 'logtohub';
+import { DiscordLogger, ChannelType, CreateTextChannelProps, defaultBotChannels  } from 'logtohub';
+
+// 
+const testBotChannel: CreateTextChannelProps = {
+  type: ChannelType.BotNotification,
+  name: "Meu novo canal",
+  description: "Teste dos canais do discord",
+};
+
 
 // Configurar o logger
-const logger = new DiscordLogger({
-  token: 'seu-token-do-discord',
-  defaultChannelName: 'logs-producao'
+const logger = await  DiscordLogger.getInstance({
+  APIToken: 'token do bot',
+  // se não passar terá 2 canais default, que também podem ser importados com exemplo
+  channels: [testBotChannel, ...defaultBotChannels]
 });
-
-// Conectar ao Discord
-await logger.start();
 
 // Enviar mensagens de log
-logger.log("O usuário não conseguiu logar");
-
 logger.log({
-    messagem: "O usuário não conseguiu logar"
+  messagem: "pela sequência > notification > error > common"
 });
 
-logger.error("O serviço parou de funcionar")
+logger.log({
+    messagem: "O usuário não conseguiu logar",
+    // caso o canal não seja encontrado tentará postar no canal de erro, caso não exista um definido vai para notifcation.
+    channel: "nome do canal, ou parte"
+});
+
 
 ### getChannel
 
@@ -39,17 +48,6 @@ Você pode pegar uma lista de qualquer canal do servidor com a função, e isso 
 const channel = logger.getChannel("Outro canal fora do bot")
 
 channel.sendMessage("Nova msg no canal!")
-
-
-## Configuração
-
-### Discord Logger
-
-```typescript
-const logger = new DiscordLogger({
-  APIToken: 'seu-token-do-discord',
-});
-```
 
 ## Recursos
 
