@@ -133,7 +133,7 @@ export abstract class Logger implements Platform {
   private searchChannel(key: keyof TextChannel, toFind: string) {
     return this.getChannelArray().find((ch) => {
       const normalizedStr = this.normalizeChannelName(String(ch[key]));
-      const normalizedToFind = this.normalizeChannelName(toFind).toLowerCase();
+      const normalizedToFind = this.normalizeChannelName(toFind);
 
       return normalizedStr.includes(normalizedToFind);
     });
