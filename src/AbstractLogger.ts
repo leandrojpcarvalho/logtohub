@@ -13,20 +13,14 @@ import {
   Status,
   BotError,
   convertDataToString,
-  normalizeDiscordChannelNameToCapitalizedName,
 } from "./index.js";
 
 export abstract class Logger implements Platform {
   private _allChannels = new Map<string, TextChannel>();
   private _internalLogs: boolean | undefined;
-  platform: Platforms;
+  public platform: Platforms;
 
   private _status: Status = Status.CREATING;
-
-  abstract createChannel(
-    textChannelProps: CreateTextChannelProps,
-    groupId?: string | number
-  ): Promise<TextChannel>;
 
   constructor(
     platform: Platforms,
@@ -40,17 +34,19 @@ export abstract class Logger implements Platform {
     this._internalLogs = internalLogs;
   }
 
+  abstract createChannel(
+    textChannelProps: CreateTextChannelProps,
+    groupId?: string | number
+  ): Promise<TextChannel>;
+
   protected setStatus(status: Status) {
     this._status = status;
   }
 
   private addChannel(channel: TextChannel) {
-    const formattedName = normalizeDiscordChannelNameToCapitalizedName(
-      channel.name
-    );
-    this._allChannels.set(formattedName, channel);
+    this._allChannels.set(channel.name, channel);
     this.internalLog(
-      `Canal ${formattedName} adicionado com sucesso aos mapeados`
+      `Canal ${channel.name} adicionado com sucesso aos mapeados`
     );
   }
 
@@ -134,21 +130,30 @@ export abstract class Logger implements Platform {
     return Array.from(this._allChannels.values());
   }
 
-  private findSomethingOnChannel(key: keyof TextChannel, toFind: string) {
+  private searchChannel(key: keyof TextChannel, toFind: string) {
     return this.getChannelArray().find((ch) => {
-      const normalizedStr = String(ch[key]).replaceAll("-", " ").toLowerCase();
-      const normalizedToFind = toFind.toLowerCase();
+      const normalizedStr = this.normalizeChannelName(String(ch[key]));
+      const normalizedToFind = this.normalizeChannelName(toFind);
 
       return normalizedStr.includes(normalizedToFind);
     });
   }
 
+  private normalizeChannelName(name: string) {
+    const rgxSpaceSquenceToHifen = /\s+/g
+
+    return name
+      .trim()
+      .replace(rgxSpaceSquenceToHifen, "-")
+      .toLowerCase()
+  }
+
   private getChannelByType(type: string): TextChannel | null {
-    return this.findSomethingOnChannel("type", type) ?? null;
+    return this.searchChannel("type", type) ?? null;
   }
 
   private getChannelByName(name: string) {
-    return this.findSomethingOnChannel("name", name) ?? null;
+    return this.searchChannel("name", name) ?? null;
   }
 
   public getChannel(nameOrType: string): TextChannel | null {

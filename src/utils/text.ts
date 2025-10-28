@@ -11,10 +11,6 @@ export function kebabToPascal(str: string) {
   return capitalizeFirstLetter(str, "-").join("");
 }
 
-export function normalizeDiscordChannelNameToCapitalizedName(str: string) {
-  return capitalizeFirstLetter(str, "-").join(" ");
-}
-
 export function pascalToKebab(str: string) {
   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
