@@ -1,6 +1,7 @@
 import {
   ChannelType as DiscordChannelType,
   Client as DiscordClient,
+  NonThreadGuildBasedChannel,
   PermissionsBitField,
   TextChannel,
 } from "discord.js";
@@ -12,6 +13,18 @@ import { Logger } from "../AbstractLogger.js";
 
 import { defaultBotChannels } from "./channels/index.js";
 import { CreateTextChannelProps } from "../types/index.js";
+import { BotError } from '../utils/BotError.js';
+
+interface IsValidChannelArgs {
+  channel: NonThreadGuildBasedChannel | null;
+  guildId?: string;
+}
+
+interface Rule {
+  condition: boolean | (() => boolean);
+  message: string;
+  throwlable?: boolean;
+}
 
 export class DiscordLogger extends Logger {
   private clientInstance: DiscordClient;
@@ -21,6 +34,7 @@ export class DiscordLogger extends Logger {
     APIToken,
     channelBots,
     internalLogs,
+    guildId,
   }: Types.PlatformDiscordConstructor): Promise<DiscordLogger> {
     const discordEv = new DiscordClient(
       options ?? {
@@ -42,7 +56,7 @@ export class DiscordLogger extends Logger {
 
         const textChannels = allChannels
           .map(([, ch]) => ch)
-          .filter((ch): ch is TextChannel => ch instanceof TextChannel)
+          .filter((ch): ch is TextChannel => this.isValidChannel({ channel: ch, guildId }))
           .map((ch) => {
             const type = utils.channelTypeResolve(ch.name);
             return discordChannelAdapter(ch, type);
@@ -69,6 +83,32 @@ export class DiscordLogger extends Logger {
         resolve(instance);
       })
     );
+  }
+
+  private static isValidChannel({ channel, guildId }: IsValidChannelArgs): boolean {
+    if (!channel) return false;
+
+    const rules: Rule[] = [
+      { condition: channel.type === DiscordChannelType.GuildText, message: "Canal não é do tipo texto." },
+      {
+        condition: !guildId || channel.guildId === guildId,
+        message: `Canal ${channel.name} não pertence à guilda especificada.\nID esperado: ${guildId}, recebido: ${channel.guildId}`,
+        throwlable: true,
+      },
+    ]
+
+    for (const rule of rules) {
+      const condition = typeof rule.condition === "function" ? rule.condition() : rule.condition;
+      if (!condition) {
+        if (rule.throwlable) {
+          throw new BotError(rule.message, Types.BotErrorModules.Instance);
+        }
+
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private constructor(

@@ -49,6 +49,7 @@ export interface PlatformDiscordConstructor {
   options?: ClientOptions;
   channelBots?: CreateTextChannelProps[];
   internalLogs?: boolean;
+  guildId?: string;
 }
 
 //TODO: Implement chat on channels to execute pre-set commands
