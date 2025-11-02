@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 
 import { discordChannelAdapter } from "./factory.js";
-import * as utils from "./utils.js";
+import * as utils from "../utils";
 import * as Types from "../types/index.js";
 import { Logger } from "../AbstractLogger.js";
 
@@ -79,7 +79,7 @@ export class DiscordLogger extends Logger {
   ) {
     super(Types.Platforms.DISCORD, existingChannels, internalLogs);
     this.clientInstance = client;
-    this.processChannels(channelsToCreate);
+    this.processChannels(channelsToCreate); // TODO: mover isso para dentro do abstract logger
   }
 
   public async createChannel(

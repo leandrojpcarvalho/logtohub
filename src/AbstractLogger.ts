@@ -175,32 +175,38 @@ export abstract class Logger implements Platform {
   }
 
   private trySendMessage(
-    str: string,
+    channelName: string,
     type: FindChannelsOptions,
     messageToSend: LogLike
   ): Promise<void> {
-    const channel = this.selectChannelByType(type)(str);
+    const channel = this.selectChannelByType(type)(channelName);
     if (channel) {
       return channel.sendMessage(messageToSend);
     }
     return this.chooseChannelByPriority({
       errorMessage: "Mensagem não foi enviada",
       type: BotErrorMessage.NOT_FOUND_CHANNEL,
+      channelName,
       tryProcess: messageToSend,
     });
   }
 
   public log({ channel, message }: SendMessage): Promise<void> {
-    if (channel) {
-      if (typeof channel === "string") {
-        return this.trySendMessage(channel, "any", message);
-      }
-      if ("name" in channel) {
-        return this.trySendMessage(channel.name, "name", message);
-      }
-      return this.trySendMessage(channel.type, "type", message);
+    if (this.status !== Status.READY) {
+      throw new BotError('A instância ainda não está pronta. Você usou awaitReady', BotErrorModules.Instance);
     }
-    return this.chooseChannelByPriority(message);
+
+    if (!channel) return this.chooseChannelByPriority(message);
+
+    if (typeof channel === "string") {
+      return this.trySendMessage(channel, "any", message);
+    }
+
+    if ("name" in channel) {
+      return this.trySendMessage(channel.name, "name", message);
+    }
+
+    return this.trySendMessage(channel.type, "type", message);
   }
 
   get status() {
@@ -215,5 +221,39 @@ export abstract class Logger implements Platform {
     if (this._internalLogs) {
       console.log(convertDataToString(msg));
     }
+  }
+
+  /**
+   * Waits until the logger instance is ready.
+   * Uses a polling mechanism to check the status of the instance.
+   * 
+   * @param tryCount Number of attempts to check if the instance is ready. Default is 10.
+   * @throws BotError if the instance is not ready within the specified attempts.
+   * @example
+   * ```typescript
+   * await logger.awaitReady();
+   * ```
+   */
+  public awaitReady(tryCount = 10): Promise<void> {
+    return new Promise((resolve) => {
+      if (tryCount <= 0) {
+        throw new BotError(
+          "Timeout ao aguardar o logger ficar pronto",
+          BotErrorModules.Instance
+        );
+      }
+
+      const checkReady = () => {  
+        if (this._status === Status.READY) {
+          resolve();
+        } else {
+          setTimeout(checkReady, 500);
+        }
+
+        tryCount--;
+      };
+
+      checkReady();
+    });
   }
 }

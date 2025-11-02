@@ -9,6 +9,7 @@ import {
 
 export enum Platforms {
   DISCORD = "discord",
+  TELEGRAM = "telegram",
 }
 
 export enum Status {
@@ -42,6 +43,7 @@ export interface Platform {
     isBot?: boolean
   ): Promise<TextChannel>;
   log(messageToSend: SendMessage): Promise<void>;
+  awaitReady(): Promise<void>;
 }
 
 export interface PlatformDiscordConstructor {
