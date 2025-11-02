@@ -20,6 +20,7 @@ export class TelegramTextChannel implements TextChannel {
     const content = convertDataToString(message); // TODO: implementar prettifyLogs depois da PR #4
     await this.client.api.sendMessage(this.groupId, content, {
       message_thread_id: this.topic.messageThreadId,
+      parse_mode: 'Markdown',
     });
   }
 }
