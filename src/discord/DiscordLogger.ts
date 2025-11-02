@@ -79,7 +79,7 @@ export class DiscordLogger extends Logger {
   ) {
     super(Types.Platforms.DISCORD, existingChannels, internalLogs);
     this.clientInstance = client;
-    this.processChannels(channelsToCreate); // TODO: mover isso para dentro do abstract logger
+    this.processChannels(channelsToCreate);
   }
 
   public async createChannel(
