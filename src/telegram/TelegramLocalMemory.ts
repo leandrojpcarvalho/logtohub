@@ -30,7 +30,6 @@ export class TelegramLocalMemory implements TelegramMemory {
 
   async getTopicIdByName(topicName: string): Promise<number | null> {
     const memoryFile = this.readMemoryFile();
-    console.log(memoryFile);
     for (const [id, name] of Object.entries(memoryFile.topics)) {
       if (name === topicName) {
         return Number(id);
