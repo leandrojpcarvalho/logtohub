@@ -2,6 +2,7 @@ import {
   TextChannel as DiscordTextChannel,
   Channel as DiscordChannel,
   VoiceChannel as DiscordVoiceChannel,
+  ChannelType as DiscordChannelType,
 } from "discord.js";
 
 import {
@@ -14,6 +15,7 @@ import {
   Channel,
   VoiceChannel,
 } from "../index.js";
+import { MessageFormatter } from '../utils/MessageFormater.js';
 
 class InternalTextChannel implements TextChannel {
   constructor(private channel: DiscordTextChannel, public type: ChannelType) {}
@@ -29,8 +31,11 @@ class InternalTextChannel implements TextChannel {
     return this.channel.name;
   }
 
-  async sendMessage(message: LogLike) {
-    const content = convertDataToString(message);
+  async sendMessage(message: LogLike, prettifyLogs: boolean = false): Promise<void> {
+    const content = prettifyLogs
+      ? MessageFormatter.format(message)
+      : convertDataToString(message);
+
     await this.channel.send({
       content,
     });
@@ -44,13 +49,18 @@ class InternalVoiceChannel implements VoiceChannel {
     return this.channel.name;
   }
 
-  async sendMessage(message: LogLike): Promise<void> {
+  async sendMessage(message: LogLike, prettifyLogs: boolean = false): Promise<void> {
     const chat = this.channel.parent?.children.cache.find(
-      (ch) => ch.type === 0
+      (ch) => ch.type === DiscordChannelType.GuildText
     );
-    if (chat) {
-      await chat.send(convertDataToString(message));
-    }
+
+    if (!chat) return;
+
+    const content = prettifyLogs
+      ? MessageFormatter.format(message)
+      : convertDataToString(message);
+
+    await chat.send(content);
   }
 }
 

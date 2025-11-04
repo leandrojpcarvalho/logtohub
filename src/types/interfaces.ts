@@ -24,10 +24,25 @@ export interface Channel {
   sendMessage(message: LogLike): Promise<void>;
 }
 
-export interface VoiceChannel extends Channel {}
+export interface VoiceChannel extends Channel {
+  /**
+   * Sends a message to the channel
+   * @param message The message to be sent
+   * @param prettifyLogs Whether to prettify the logs or not
+  */
+  sendMessage(message: LogLike, prettifyLogs?: boolean): Promise<void>;
+}
+
 export interface TextChannel extends Channel {
   description?: string | null;
   groupId?: string | number;
+
+  /**
+   * Sends a message to the channel
+   * @param message The message to be sent
+   * @param prettifyLogs Whether to prettify the logs or not
+  */
+  sendMessage(message: LogLike, prettifyLogs?: boolean): Promise<void>;
 }
 
 export interface Platform {
@@ -50,6 +65,7 @@ export interface PlatformDiscordConstructor {
   channelBots?: CreateTextChannelProps[];
   internalLogs?: boolean;
   guildId?: string;
+  prettifyLogs?: boolean;
 }
 
 //TODO: Implement chat on channels to execute pre-set commands
