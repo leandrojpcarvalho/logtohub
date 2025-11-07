@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 
 import { discordChannelAdapter } from "./factory.js";
-import * as utils from "./utils.js";
+import * as utils from "../utils";
 import * as Types from "../types/index.js";
 import { Logger } from "../AbstractLogger.js";
 
