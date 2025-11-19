@@ -302,7 +302,7 @@ const logger = await DiscordLogger.getInstance({
 
 ## 🗺️ Roadmap
 
-- [ ] Suporte a Telegram
+- [X] Suporte a Telegram
 - [ ] Suporte a Slack
 - [ ] Suporte a Email
 - [ ] Filtros de log por nível (INFO, WARN, ERROR, DEBUG)
