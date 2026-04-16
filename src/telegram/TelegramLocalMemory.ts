@@ -1,5 +1,5 @@
 import { TelegramMemory as TelegramMemory } from "./types";
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 interface TelegramMemoryFile {
@@ -10,77 +10,75 @@ interface TelegramMemoryFile {
 
 export class TelegramLocalMemory implements TelegramMemory {
   private _memoryFilePath = "./.logtohub/telegram-memory.json";
+  private _cache: TelegramMemoryFile = { topics: {} };
+  private _writePending = false;
 
   constructor(path?: string) {
     if (path) this._memoryFilePath = path;
+    this.init();
+  }
 
-    this.createMemoryFile();
+  private async init() {
+    await this.createMemoryFile();
+    this._cache = await this.readMemoryFile();
   }
 
   async addTopic(topicName: string, topicId: number): Promise<void> {
-    const memoryFile = this.readMemoryFile();
-    memoryFile.topics[topicId] = topicName;
-    this.saveMemoryFile(memoryFile);
+    this._cache.topics[topicId] = topicName;
+    await this.flushToDisk();
   }
   
   async getAllTopics(): Promise<Record<number, string>> {
-    const memoryFile = this.readMemoryFile();
-    return memoryFile.topics;
+    return { ...this._cache.topics };
   }
 
   async getTopicIdByName(topicName: string): Promise<number | null> {
-    const memoryFile = this.readMemoryFile();
-    for (const [id, name] of Object.entries(memoryFile.topics)) {
+    for (const [id, name] of Object.entries(this._cache.topics)) {
       if (name === topicName) {
         return Number(id);
       }
     }
-
     return null;
   }
 
   async clearTopics(): Promise<void> {
-    const memoryFile: TelegramMemoryFile = { topics: {} };
-    this.saveMemoryFile(memoryFile);
+    this._cache = { topics: {} };
+    await this.saveMemoryFile();
   }
 
   async removeTopic(topicId: number): Promise<void> {
-    const memoryFile = this.readMemoryFile();
-    delete memoryFile.topics[topicId];
-    this.saveMemoryFile(memoryFile);
+    delete this._cache.topics[topicId];
+    await this.flushToDisk();
   }
 
-  private async createMemoryFile() {
+  private async flushToDisk(): Promise<void> {
+    if (this._writePending) return;
+    this._writePending = true;
+    await this.saveMemoryFile();
+    this._writePending = false;
+  }
+
+  private async createMemoryFile(): Promise<void> {
+    const folder = path.dirname(this._memoryFilePath);
+    await fs.mkdir(folder, { recursive: true });
+
     try {
-      const folder = path.dirname(this._memoryFilePath);
-  
-      if (!fs.existsSync(folder)) {
-        fs.mkdirSync(folder, { recursive: true });
-      }
-  
-      if (fs.existsSync(this._memoryFilePath)) return this._memoryFilePath;
-  
-      fs.writeFileSync(this._memoryFilePath, JSON.stringify({ topics: {} }));
-      return this._memoryFilePath;
+      await fs.access(this._memoryFilePath);
     } catch {
-      throw new Error("Erro ao criar o arquivo de memória do Telegram.");
+      await fs.writeFile(this._memoryFilePath, JSON.stringify({ topics: {} }));
     }
   }
 
-  private readMemoryFile(): TelegramMemoryFile {
+  private async readMemoryFile(): Promise<TelegramMemoryFile> {
     try {
-      const data = fs.readFileSync(this._memoryFilePath, "utf-8");
+      const data = await fs.readFile(this._memoryFilePath, "utf-8");
       return JSON.parse(data);
     } catch {
-      throw new Error("Erro ao ler o arquivo de memória do Telegram.");
+      return { topics: {} };
     }
   }
 
-  private saveMemoryFile(info: TelegramMemoryFile) {
-    try {
-      fs.writeFileSync(this._memoryFilePath, JSON.stringify(info, null, 2));
-    } catch {
-      throw new Error("Erro ao salvar o arquivo de memória do Telegram.");
-    }
+  private async saveMemoryFile(): Promise<void> {
+    await fs.writeFile(this._memoryFilePath, JSON.stringify(this._cache, null, 2));
   }
 }

@@ -70,14 +70,14 @@ import { defaultBotChannels } from "../discord";
 export class TelegramLogger extends Logger {
   private _clientInstance: Bot;
   private _memory: TT.TelegramMemory;
+  private _destroyed = false;
 
   private constructor(
     existingChannels: AT.TextChannel[],
     channelsToCreate: AT.CreationChannels,
     client: Bot,
     memory: TT.TelegramMemory,
-    internalLogs?: boolean,
-    prettifyLogs?: boolean // TODO: implementar após https://github.com/leandrojpcarvalho/logtohub/pull/488
+    internalLogs?: boolean
   ) {
     super(AT.Platforms.TELEGRAM, existingChannels, internalLogs);
     this._clientInstance = client;
@@ -92,7 +92,6 @@ export class TelegramLogger extends Logger {
     guildId,
     memory: externalMemory,
     memoryFilePath,
-    prettifyLogs,
   }: TT.GetInstanceArgsTelegram): Promise<TelegramLogger> {
     const memory = externalMemory ? externalMemory : new TelegramLocalMemory(memoryFilePath);
     const bot = new Bot(APIToken);
@@ -159,8 +158,7 @@ export class TelegramLogger extends Logger {
       },
       bot,
       memory,
-      internalLogs,
-      prettifyLogs
+      internalLogs
     );
   }
 
@@ -205,5 +203,12 @@ export class TelegramLogger extends Logger {
     } catch (e) {
       return false;
     }
+  }
+
+  public async destroy(): Promise<void> {
+    if (this._destroyed) return;
+    this._clientInstance.stop();
+    this._destroyed = true;
+    this.internalLog("TelegramLogger destruído com sucesso");
   }
 }

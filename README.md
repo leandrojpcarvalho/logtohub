@@ -300,6 +300,78 @@ const logger = await DiscordLogger.getInstance({
 });
 ```
 
+### Telegram
+
+O LogToHub também suporta Telegram, usando tópicos de fórum para organizar os canais de log.
+
+**Importante:** O grupo do Telegram precisa ter **Tópicos (forum)** habilitados e o bot precisa ser **administrador**.
+
+```typescript
+import { TelegramLogger } from 'logtohub';
+
+const logger = await TelegramLogger.getInstance({
+  APIToken: 'seu-token-do-bot-telegram',
+  guildId: 'id-do-grupo-telegram',
+});
+
+// Enviar uma mensagem
+await logger.log({
+  message: "Aplicação iniciada com sucesso!"
+});
+```
+
+#### Configuração de Canais
+
+```typescript
+const logger = await TelegramLogger.getInstance({
+  APIToken: process.env.TELEGRAM_BOT_TOKEN!,
+  guildId: process.env.TELEGRAM_GROUP_ID!,
+  channelBots: [
+    {
+      type: ChannelType.BotNotification,
+      name: "Logs Gerais",
+      description: "Logs gerais da aplicação",
+    },
+    {
+      type: ChannelType.BotError,
+      name: "Erros Críticos",
+      description: "Erros que requerem ação imediata",
+    }
+  ]
+});
+```
+
+#### Destruindo a Instância
+
+```typescript
+await logger.destroy();
+```
+
+#### Armazenamento Customizado
+
+Por padrão, o TelegramLogger usa um arquivo local para persistir os mapeamentos de tópicos. Você pode implementar seu próprio armazenamento:
+
+```typescript
+interface TelegramMemory {
+  addTopic(topicName: string, topicId: number): Promise<void>;
+  getAllTopics(): Promise<Record<number, string>>;
+  getTopicIdByName(topicName: string): Promise<number | null>;
+  removeTopic(topicId: number): Promise<void>;
+  clearTopics(): Promise<void>;
+}
+
+// Exemplo com Redis
+class RedisTelegramMemory implements TelegramMemory {
+  // implemente os métodos...
+}
+
+const logger = await TelegramLogger.getInstance({
+  APIToken: process.env.TELEGRAM_BOT_TOKEN!,
+  guildId: process.env.TELEGRAM_GROUP_ID!,
+  memory: new RedisTelegramMemory(redisClient),
+});
+```
+
 ## 🗺️ Roadmap
 
 - [X] Suporte a Telegram
@@ -319,12 +391,15 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull r
 ## 📄 Licença
 
 MIT © [Leandro J. P. Carvalho](https://github.com/leandrojpcarvalho)
+MIT © [Walefy](https://github.com/walefy)
 
 ## 🔗 Links Úteis
 
 - [Documentação Discord.js](https://discord.js.org/)
 - [Como criar um bot Discord](https://discord.com/developers/docs/intro)
 - [Obter token do bot Discord](https://discord.com/developers/applications)
+- [Documentação Grammy (Telegram)](https://grammy.dev/)
+- [Como criar um bot Telegram](https://core.telegram.org/bots/tutorial)
 
 ---
 

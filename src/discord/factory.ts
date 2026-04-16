@@ -31,13 +31,9 @@ class InternalTextChannel implements TextChannel {
     return this.channel.name;
   }
 
-  async sendMessage(message: LogLike, prettifyLogs: boolean = false): Promise<void> {
-    const content = prettifyLogs
-      ? MessageFormatter.format(message)
-      : convertDataToString(message);
-
+  async sendMessage(message: LogLike): Promise<void> {
     await this.channel.send({
-      content,
+      content: convertDataToString(message),
     });
   }
 }
@@ -49,18 +45,14 @@ class InternalVoiceChannel implements VoiceChannel {
     return this.channel.name;
   }
 
-  async sendMessage(message: LogLike, prettifyLogs: boolean = false): Promise<void> {
+  async sendMessage(message: LogLike): Promise<void> {
     const chat = this.channel.parent?.children.cache.find(
       (ch) => ch.type === DiscordChannelType.GuildText
     );
 
     if (!chat) return;
 
-    const content = prettifyLogs
-      ? MessageFormatter.format(message)
-      : convertDataToString(message);
-
-    await chat.send(content);
+    await chat.send(convertDataToString(message));
   }
 }
 

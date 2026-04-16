@@ -2,7 +2,6 @@ import { CreateTextChannelProps } from "../types";
 
 export interface GetInstanceArgsTelegram {
   APIToken: string;
-  prettifyLogs?: boolean;
   channelBots?: CreateTextChannelProps[];
   internalLogs?: boolean;
   guildId: string;

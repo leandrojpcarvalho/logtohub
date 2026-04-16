@@ -18,7 +18,6 @@ import {
 export abstract class Logger implements Platform {
   private _allChannels = new Map<string, TextChannel>();
   private _internalLogs?: boolean;
-  private _prettifyLogs?: boolean;
   private _status: Status = Status.CREATING;
 
   public platform: Platforms;
@@ -27,15 +26,13 @@ export abstract class Logger implements Platform {
   constructor(
     platform: Platforms,
     existingChannels: TextChannel[],
-    internalLogs?: boolean,
-    prettifyLogs?: boolean
+    internalLogs?: boolean
   ) {
     if (existingChannels.length > 0) {
       existingChannels.map((ch) => this.addChannel(ch));
     }
     this.platform = platform;
     this._internalLogs = internalLogs;
-    this._prettifyLogs = prettifyLogs;
   }
 
   abstract createChannel(
@@ -113,15 +110,15 @@ export abstract class Logger implements Platform {
   private chooseChannelByPriority(msg: LogLike) {
     const notification = this.getChannel(ChannelType.BotNotification);
     if (notification) {
-      return notification.sendMessage(msg, this._prettifyLogs);
+      return notification.sendMessage(msg);
     }
     const error = this.getChannel(ChannelType.BotError);
     if (error) {
-      return error.sendMessage(msg, this._prettifyLogs);
+      return error.sendMessage(msg);
     }
     const common = this.getChannel(ChannelType.Common);
     if (common) {
-      return common.sendMessage(msg, this._prettifyLogs);
+      return common.sendMessage(msg);
     }
 
     throw new BotError(
@@ -185,7 +182,7 @@ export abstract class Logger implements Platform {
   ): Promise<void> {
     const channel = this.selectChannelByType(type)(channelName);
     if (channel) {
-      return channel.sendMessage(messageToSend, this._prettifyLogs);
+      return channel.sendMessage(messageToSend);
     }
     return this.chooseChannelByPriority({
       errorMessage: "Mensagem não foi enviada",

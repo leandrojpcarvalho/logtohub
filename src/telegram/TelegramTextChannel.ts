@@ -17,8 +17,7 @@ export class TelegramTextChannel implements TextChannel {
   }
 
   public async sendMessage(message: LogLike): Promise<void> {
-    const content = convertDataToString(message); // TODO: implementar prettifyLogs depois da PR #4
-    await this.client.api.sendMessage(this.groupId, content, {
+    await this.client.api.sendMessage(this.groupId, convertDataToString(message), {
       message_thread_id: this.topic.messageThreadId,
       parse_mode: 'Markdown',
     });
