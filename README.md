@@ -132,6 +132,37 @@ await logger.log({
     ip: "192.168.1.1"
   }
 });
+```
+
+#### Níveis de Log
+
+O LogToHub suporta níveis de log: `DEBUG`, `INFO`, `WARN`, `ERROR`.
+
+```typescript
+import { LogLevel } from 'logtohub';
+
+// Mensagem com nível específico
+await logger.log({
+  message: "Erro ao conectar com banco de dados",
+  level: LogLevel.ERROR
+});
+
+// Padrão é INFO se não especificado
+await logger.log({
+  message: "Usuário fez login"
+});
+```
+
+Por padrão, apenas mensagens com nível `INFO` ou superior são logadas. Configure o nível mínimo:
+
+```typescript
+const logger = await DiscordLogger.getInstance({
+  APIToken: 'seu-token',
+  minLogLevel: LogLevel.DEBUG // Recebe todos os logs
+});
+
+// Alterar em tempo de execução
+logger.minLogLevel = LogLevel.WARN; // Apenas WARN e ERROR
 
 // Array
 await logger.log({
@@ -377,7 +408,7 @@ const logger = await TelegramLogger.getInstance({
 - [X] Suporte a Telegram
 - [ ] Suporte a Slack
 - [ ] Suporte a Email
-- [ ] Filtros de log por nível (INFO, WARN, ERROR, DEBUG)
+- [X] Filtros de log por nível (INFO, WARN, ERROR, DEBUG)
 - [ ] Rate limiting configurável
 - [ ] Sistema de retry automático em caso de falhas
 - [ ] Formatação customizável de mensagens

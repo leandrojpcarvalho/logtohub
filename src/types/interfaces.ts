@@ -4,6 +4,7 @@ import {
   ChannelType,
   CreateTextChannelProps,
   LogLike,
+  LogLevel,
   SendMessage,
 } from "../index.js";
 
@@ -65,6 +66,7 @@ export interface PlatformDiscordConstructor {
   channelBots?: CreateTextChannelProps[];
   internalLogs?: boolean;
   guildId?: string;
+  minLogLevel?: LogLevel;
 }
 
 //TODO: Implement chat on channels to execute pre-set commands

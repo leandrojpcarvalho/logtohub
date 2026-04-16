@@ -13,12 +13,15 @@ import {
   Status,
   BotError,
   convertDataToString,
+  LogLevel,
+  LOG_LEVEL_PRIORITY,
 } from "./index.js";
 
 export abstract class Logger implements Platform {
   private _allChannels = new Map<string, TextChannel>();
   private _internalLogs?: boolean;
   private _status: Status = Status.CREATING;
+  private _minLogLevel: LogLevel;
 
   public platform: Platforms;
 
@@ -26,13 +29,15 @@ export abstract class Logger implements Platform {
   constructor(
     platform: Platforms,
     existingChannels: TextChannel[],
-    internalLogs?: boolean
+    internalLogs?: boolean,
+    minLogLevel: LogLevel = LogLevel.INFO
   ) {
     if (existingChannels.length > 0) {
       existingChannels.map((ch) => this.addChannel(ch));
     }
     this.platform = platform;
     this._internalLogs = internalLogs;
+    this._minLogLevel = minLogLevel;
   }
 
   abstract createChannel(
@@ -192,22 +197,43 @@ export abstract class Logger implements Platform {
     });
   }
 
-  public log({ channel, message }: SendMessage): Promise<void> {
+  public log({ channel, message, level = LogLevel.INFO }: SendMessage): Promise<void> {
     if (this.status !== Status.READY) {
       throw new BotError('A instância ainda não está pronta. Você usou awaitReady', BotErrorModules.Instance);
     }
 
-    if (!channel) return this.chooseChannelByPriority(message);
+    if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[this._minLogLevel]) {
+      return Promise.resolve();
+    }
+
+    const formattedMessage = this.formatMessage(message, level);
+
+    if (!channel) return this.chooseChannelByPriority(formattedMessage);
 
     if (typeof channel === "string") {
-      return this.trySendMessage(channel, "any", message);
+      return this.trySendMessage(channel, "any", formattedMessage);
     }
 
     if ("name" in channel) {
-      return this.trySendMessage(channel.name, "name", message);
+      return this.trySendMessage(channel.name, "name", formattedMessage);
     }
 
-    return this.trySendMessage(channel.type, "type", message);
+    return this.trySendMessage(channel.type, "type", formattedMessage);
+  }
+
+  private formatMessage(message: LogLike, level: LogLevel): LogLike {
+    const timestamp = new Date().toISOString();
+    const levelTag = `[${level}]`;
+
+    if (typeof message === "string") {
+      return `${levelTag} ${message}`;
+    }
+
+    return {
+      level,
+      timestamp,
+      ...(Array.isArray(message) ? { data: message } : message),
+    };
   }
 
   get status() {
@@ -216,6 +242,14 @@ export abstract class Logger implements Platform {
 
   get allChannels() {
     return this._allChannels;
+  }
+
+  get minLogLevel(): LogLevel {
+    return this._minLogLevel;
+  }
+
+  set minLogLevel(level: LogLevel) {
+    this._minLogLevel = level;
   }
 
   public internalLog(msg: LogLike) {

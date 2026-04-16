@@ -1,4 +1,4 @@
-import { ChannelType } from "./index.js";
+import { ChannelType, LogLevel } from "./index.js";
 
 export type CreateTextChannelProps = {
   type: ChannelType;
@@ -14,6 +14,7 @@ export type CreationChannels = {
 
 export type SendMessage = {
   message: LogLike;
+  level?: LogLevel;
   channel?:
     | {
         name: string;

@@ -1,4 +1,4 @@
-import { CreateTextChannelProps } from "../types";
+import { CreateTextChannelProps, LogLevel } from "../types";
 
 export interface GetInstanceArgsTelegram {
   APIToken: string;
@@ -7,6 +7,7 @@ export interface GetInstanceArgsTelegram {
   guildId: string;
   memoryFilePath?: string;
   memory?: TelegramMemory;
+  minLogLevel?: LogLevel;
 }
 
 export interface InternalForumTopic {
