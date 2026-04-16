@@ -35,6 +35,7 @@ export class DiscordLogger extends Logger {
     channelBots,
     internalLogs,
     guildId,
+    minLogLevel,
   }: Types.PlatformDiscordConstructor): Promise<DiscordLogger> {
     const discordEv = new DiscordClient(
       options ?? {
@@ -70,6 +71,7 @@ export class DiscordLogger extends Logger {
           },
           client,
           internalLogs,
+          minLogLevel,
         );
 
         console.log(`
@@ -115,9 +117,10 @@ export class DiscordLogger extends Logger {
     existingChannels: Types.TextChannel[],
     channelsToCreate: Types.CreationChannels,
     client: DiscordClient,
-    internalLogs: boolean = false
+    internalLogs: boolean = false,
+    minLogLevel?: Types.LogLevel
   ) {
-    super(Types.Platforms.DISCORD, existingChannels, internalLogs);
+    super(Types.Platforms.DISCORD, existingChannels, internalLogs, minLogLevel);
     this.clientInstance = client;
     this.processChannels(channelsToCreate);
   }

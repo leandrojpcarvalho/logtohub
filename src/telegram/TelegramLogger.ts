@@ -77,9 +77,10 @@ export class TelegramLogger extends Logger {
     channelsToCreate: AT.CreationChannels,
     client: Bot,
     memory: TT.TelegramMemory,
-    internalLogs?: boolean
+    internalLogs?: boolean,
+    minLogLevel?: AT.LogLevel
   ) {
-    super(AT.Platforms.TELEGRAM, existingChannels, internalLogs);
+    super(AT.Platforms.TELEGRAM, existingChannels, internalLogs, minLogLevel);
     this._clientInstance = client;
     this._memory = memory;
     this.processChannels(channelsToCreate);
@@ -92,6 +93,7 @@ export class TelegramLogger extends Logger {
     guildId,
     memory: externalMemory,
     memoryFilePath,
+    minLogLevel,
   }: TT.GetInstanceArgsTelegram): Promise<TelegramLogger> {
     const memory = externalMemory ? externalMemory : new TelegramLocalMemory(memoryFilePath);
     const bot = new Bot(APIToken);
@@ -158,7 +160,8 @@ export class TelegramLogger extends Logger {
       },
       bot,
       memory,
-      internalLogs
+      internalLogs,
+      minLogLevel
     );
   }
 
