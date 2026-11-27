@@ -13,12 +13,14 @@ import {
   Status,
   BotError,
   convertDataToString,
+  generateChannelName,
 } from "./index.js";
 
 export abstract class Logger implements Platform {
   private _allChannels = new Map<string, TextChannel>();
   private _internalLogs?: boolean;
   private _status: Status = Status.CREATING;
+  private _initError: BotError | null = null;
 
   public platform: Platforms;
 
@@ -52,7 +54,16 @@ export abstract class Logger implements Platform {
   }
 
   private validChannelToCreate(channel: CreateTextChannelProps) {
-    const isMappedChannel = this.getChannelByName(channel.name);
+    // Comparação exata: a busca parcial de getChannelByName faria "api"
+    // colidir com "bot-error-api" ao criar "bot-notification-api".
+    const candidates = new Set(
+      [channel.name, generateChannelName(channel)].map((n) =>
+        this.normalizeChannelName(n)
+      )
+    );
+    const isMappedChannel = this.getChannelArray().some((ch) =>
+      candidates.has(this.normalizeChannelName(ch.name))
+    );
     if (isMappedChannel) {
       throw new BotError(
         BotErrorMessage.DUPLICATED_CHANNEL,
@@ -72,7 +83,26 @@ export abstract class Logger implements Platform {
     return newChannel;
   }
 
-  public async processChannels({ channels, groupId }: CreationChannels) {
+  /**
+   * Cria os canais pendentes e marca a instância como pronta.
+   *
+   * Nunca rejeita: as subclasses chamam este método no construtor sem `await`.
+   * Se nenhum canal puder ser usado, o erro fica guardado e é lançado por
+   * `awaitReady()` e `log()`.
+   */
+  public async processChannels(creation: CreationChannels): Promise<void> {
+    try {
+      await this.createPendingChannels(creation);
+    } catch (err) {
+      this._initError =
+        err instanceof BotError
+          ? err
+          : new BotError(convertDataToString(err), BotErrorModules.Instance);
+      this.internalLog(this._initError.message);
+    }
+  }
+
+  private async createPendingChannels({ channels, groupId }: CreationChannels) {
     const errors = [];
 
     for (const channel of channels) {
@@ -193,6 +223,8 @@ export abstract class Logger implements Platform {
   }
 
   public log({ channel, message }: SendMessage): Promise<void> {
+    if (this._initError) throw this._initError;
+
     if (this.status !== Status.READY) {
       throw new BotError('A instância ainda não está pronta. Você usou awaitReady', BotErrorModules.Instance);
     }
@@ -226,32 +258,34 @@ export abstract class Logger implements Platform {
 
   /**
    * Waits until the logger instance is ready.
-   * Uses a polling mechanism to check the status of the instance.
-   * 
+   * Uses a polling mechanism (every 500ms) to check the status of the instance.
+   *
    * @param tryCount Number of attempts to check if the instance is ready. Default is 10.
-   * @throws BotError if the instance is not ready within the specified attempts.
+   * @throws BotError if the instance fails to initialize or is not ready within the specified attempts.
    * @example
    * ```typescript
    * await logger.awaitReady();
    * ```
    */
   public awaitReady(tryCount = 10): Promise<void> {
-    return new Promise((resolve) => {
-      if (tryCount <= 0) {
-        throw new BotError(
-          "Timeout ao aguardar o logger ficar pronto",
-          BotErrorModules.Instance
-        );
-      }
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
 
-      const checkReady = () => {  
-        if (this._status === Status.READY) {
-          resolve();
-        } else {
-          setTimeout(checkReady, 500);
+      const checkReady = () => {
+        if (this._initError) return reject(this._initError);
+        if (this._status === Status.READY) return resolve();
+
+        attempts++;
+        if (attempts >= tryCount) {
+          return reject(
+            new BotError(
+              "Timeout ao aguardar o logger ficar pronto",
+              BotErrorModules.Instance
+            )
+          );
         }
 
-        tryCount--;
+        setTimeout(checkReady, 500);
       };
 
       checkReady();
