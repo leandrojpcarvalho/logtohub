@@ -11,9 +11,9 @@ import * as utils from "../utils";
 import * as Types from "../types/index.js";
 import { Logger } from "../AbstractLogger.js";
 
-import { defaultBotChannels } from "./channels/index.js";
+import { defaultBotChannels } from "../channels/index.js";
 import { CreateTextChannelProps } from "../types/index.js";
-import { BotError } from '../utils/BotError.js';
+import { BotError } from "../utils/BotError.js";
 
 interface IsValidChannelArgs {
   channel: NonThreadGuildBasedChannel | null;
@@ -39,7 +39,7 @@ export class DiscordLogger extends Logger {
     const discordEv = new DiscordClient(
       options ?? {
         intents: "AutoModerationConfiguration",
-      }
+      },
     );
 
     await discordEv.login(APIToken);
@@ -56,7 +56,9 @@ export class DiscordLogger extends Logger {
 
         const textChannels = allChannels
           .map(([, ch]) => ch)
-          .filter((ch): ch is TextChannel => this.isValidChannel({ channel: ch, guildId }))
+          .filter((ch): ch is TextChannel =>
+            this.isValidChannel({ channel: ch, guildId }),
+          )
           .map((ch) => {
             const type = utils.channelTypeResolve(ch.name);
             return discordChannelAdapter(ch, type);
@@ -81,24 +83,33 @@ export class DiscordLogger extends Logger {
 `);
 
         resolve(instance);
-      })
+      }),
     );
   }
 
-  private static isValidChannel({ channel, guildId }: IsValidChannelArgs): boolean {
+  private static isValidChannel({
+    channel,
+    guildId,
+  }: IsValidChannelArgs): boolean {
     if (!channel) return false;
 
     const rules: Rule[] = [
-      { condition: channel.type === DiscordChannelType.GuildText, message: "Canal não é do tipo texto." },
+      {
+        condition: channel.type === DiscordChannelType.GuildText,
+        message: "Canal não é do tipo texto.",
+      },
       {
         condition: !guildId || channel.guildId === guildId,
         message: `Canal ${channel.name} não pertence à guilda especificada.\nID esperado: ${guildId}, recebido: ${channel.guildId}`,
         throwlable: true,
       },
-    ]
+    ];
 
     for (const rule of rules) {
-      const condition = typeof rule.condition === "function" ? rule.condition() : rule.condition;
+      const condition =
+        typeof rule.condition === "function"
+          ? rule.condition()
+          : rule.condition;
       if (!condition) {
         if (rule.throwlable) {
           throw new BotError(rule.message, Types.BotErrorModules.Instance);
@@ -115,7 +126,7 @@ export class DiscordLogger extends Logger {
     existingChannels: Types.TextChannel[],
     channelsToCreate: Types.CreationChannels,
     client: DiscordClient,
-    internalLogs: boolean = false
+    internalLogs: boolean = false,
   ) {
     super(Types.Platforms.DISCORD, existingChannels, internalLogs);
     this.clientInstance = client;
@@ -125,7 +136,7 @@ export class DiscordLogger extends Logger {
   public async createChannel(
     options: CreateTextChannelProps,
     guildId: string,
-    botOnly = false
+    botOnly = false,
   ): Promise<Types.TextChannel> {
     const guild = await this.clientInstance.guilds.fetch(guildId);
 

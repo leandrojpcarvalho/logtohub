@@ -372,10 +372,66 @@ const logger = await TelegramLogger.getInstance({
 });
 ```
 
+### Slack
+
+O LogToHub também suporta Slack, usando a Web API oficial (`@slack/web-api`). Cada canal de log vira um canal do workspace.
+
+#### Criando o app no Slack
+
+1. Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em **Create New App** e escolha **From scratch**.
+2. Em **OAuth & Permissions**, adicione os **Bot Token Scopes**:
+   - `chat:write`: enviar mensagens
+   - `chat:write.public`: enviar em canais públicos sem precisar entrar neles
+   - `channels:read`: listar canais públicos
+   - `channels:manage`: criar canais públicos
+   - `channels:join`: entrar em canais públicos existentes
+   - `groups:read` e `groups:write`: apenas se usar `privateChannels: true`
+3. Clique em **Install to Workspace** e copie o **Bot User OAuth Token** (`xoxb-...`).
+
+**Importante:** o bot não consegue entrar sozinho em canais privados que já existem. Convide-o com `/invite @seu-app`.
+
+```typescript
+import { SlackLogger, ChannelType } from 'logtohub';
+
+const logger = await SlackLogger.getInstance({
+  APIToken: process.env.SLACK_BOT_TOKEN!,
+  internalLogs: true,
+  channelBots: [
+    { name: "api", type: ChannelType.BotError },
+    { name: "deploy", type: ChannelType.BotNotification },
+  ],
+});
+
+await logger.awaitReady();
+
+await logger.log({
+  channel: { type: ChannelType.BotError },
+  message: { error: "Falha ao conectar no banco" },
+});
+```
+
+Os canais acima são criados como `#bot-error-api` e `#bot-notification-deploy`. Nas próximas inicializações, eles são reaproveitados.
+
+#### Opções
+
+| Opção | Tipo | Descrição |
+| --- | --- | --- |
+| `APIToken` | `string` | Bot User OAuth Token (`xoxb-...`) |
+| `channelBots` | `CreateTextChannelProps[]` | Canais a criar ou mapear (padrão: canais de notificação e erro) |
+| `internalLogs` | `boolean` | Exibe logs internos no console |
+| `teamId` | `string` | Opcional. Valida se o token pertence a esse workspace |
+| `privateChannels` | `boolean` | Cria e mapeia canais privados (padrão: `false`) |
+
+#### Destruindo a Instância
+
+```typescript
+await logger.destroy();
+```
+
 ## 🗺️ Roadmap
 
 - [X] Suporte a Telegram
-- [ ] Suporte a Slack
+- [X] Suporte a Slack
 - [ ] Suporte a Email
 - [ ] Filtros de log por nível (INFO, WARN, ERROR, DEBUG)
 - [ ] Rate limiting configurável
@@ -399,6 +455,8 @@ MIT © [Walefy](https://github.com/walefy)
 - [Como criar um bot Discord](https://discord.com/developers/docs/intro)
 - [Obter token do bot Discord](https://discord.com/developers/applications)
 - [Documentação Grammy (Telegram)](https://grammy.dev/)
+- [Slack Web API (Node SDK)](https://tools.slack.dev/node-slack-sdk/web-api)
+- [Criar um app no Slack](https://api.slack.com/apps)
 - [Como criar um bot Telegram](https://core.telegram.org/bots/tutorial)
 
 ---

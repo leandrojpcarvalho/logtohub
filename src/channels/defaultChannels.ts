@@ -1,5 +1,5 @@
-import { ChannelType } from "../../types/enum.js";
-import { CreateTextChannelProps } from "../../types/types.js";
+import { ChannelType } from "../types/enum.js";
+import { CreateTextChannelProps } from "../types/types.js";
 
 const botCommunication: CreateTextChannelProps = {
   type: ChannelType.BotNotification,
