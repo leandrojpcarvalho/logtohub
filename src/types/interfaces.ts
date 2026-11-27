@@ -10,6 +10,7 @@ import {
 export enum Platforms {
   DISCORD = "discord",
   TELEGRAM = "telegram",
+  SLACK = "slack",
 }
 
 export enum Status {

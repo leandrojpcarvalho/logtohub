@@ -15,10 +15,13 @@ import {
   Channel,
   VoiceChannel,
 } from "../index.js";
-import { MessageFormatter } from '../utils/MessageFormater.js';
+import { MessageFormatter } from "@utils/MessageFormater.js";
 
 class InternalTextChannel implements TextChannel {
-  constructor(private channel: DiscordTextChannel, public type: ChannelType) {}
+  constructor(
+    private channel: DiscordTextChannel,
+    public type: ChannelType,
+  ) {}
 
   get description() {
     return this.channel.topic;
@@ -39,7 +42,10 @@ class InternalTextChannel implements TextChannel {
 }
 
 class InternalVoiceChannel implements VoiceChannel {
-  constructor(private channel: DiscordVoiceChannel, public type: ChannelType) {}
+  constructor(
+    private channel: DiscordVoiceChannel,
+    public type: ChannelType,
+  ) {}
 
   get name() {
     return this.channel.name;
@@ -47,7 +53,7 @@ class InternalVoiceChannel implements VoiceChannel {
 
   async sendMessage(message: LogLike): Promise<void> {
     const chat = this.channel.parent?.children.cache.find(
-      (ch) => ch.type === DiscordChannelType.GuildText
+      (ch) => ch.type === DiscordChannelType.GuildText,
     );
 
     if (!chat) return;
@@ -58,7 +64,7 @@ class InternalVoiceChannel implements VoiceChannel {
 
 export function discordChannelAdapter(
   discordChannel: DiscordChannel,
-  type: ChannelType
+  type: ChannelType,
 ): Channel {
   //criar função para identificar bot e canais comuns do discord
   if (discordChannel instanceof DiscordTextChannel) {

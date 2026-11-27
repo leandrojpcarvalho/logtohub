@@ -1,4 +1,4 @@
-import { CreateTextChannelProps } from "../types";
+import { CreateTextChannelProps } from "@domain/index.js";
 
 export interface GetInstanceArgsTelegram {
   APIToken: string;
