@@ -1,10 +1,17 @@
 import { WebClient } from "@slack/web-api";
-import { BotErrorModules, ChannelType, LogLike, TextChannel } from "../types";
-import { convertDataToString } from "../utils";
-import { getSlackErrorCode, toSlackBotError } from "./utils";
+import {
+  BotErrorModules,
+  ChannelType,
+  LogLike,
+  TextChannel,
+} from "../types/index.js";
+import {
+  formatSlackMessage,
+  getSlackErrorCode,
+  toSlackBotError,
+  truncateSlackText,
+} from "./utils.js";
 
-const SLACK_TEXT_LIMIT = 4000;
-const TRUNCATED_SUFFIX = "\n…(mensagem truncada)";
 const NOT_IN_CHANNEL = "not_in_channel";
 
 export class SlackTextChannel implements TextChannel {
@@ -18,7 +25,7 @@ export class SlackTextChannel implements TextChannel {
   ) {}
 
   public async sendMessage(message: LogLike): Promise<void> {
-    const text = this.truncate(convertDataToString(message));
+    const text = truncateSlackText(formatSlackMessage(message));
 
     try {
       await this.post(text);
@@ -44,12 +51,4 @@ export class SlackTextChannel implements TextChannel {
     });
   }
 
-  private truncate(text: string): string {
-    if (text.length <= SLACK_TEXT_LIMIT) return text;
-
-    return (
-      text.slice(0, SLACK_TEXT_LIMIT - TRUNCATED_SUFFIX.length) +
-      TRUNCATED_SUFFIX
-    );
-  }
 }

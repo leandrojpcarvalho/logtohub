@@ -1,4 +1,4 @@
-import { CreateTextChannelProps } from "../types";
+import { CreateTextChannelProps } from "../types/index.js";
 
 export interface GetInstanceArgsSlack {
   APIToken: string;
