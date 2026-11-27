@@ -6,9 +6,16 @@ import * as utils from "@utils/index.js";
 import { BotError } from "@utils/index.js";
 import { defaultBotChannels } from "@channels/index.js";
 import { SlackTextChannel } from "./SlackTextChannel.js";
+import { SlackMembers } from "./SlackMembers.js";
 import { sanitizeSlackChannelName, toSlackBotError } from "./utils.js";
 
 const CONVERSATIONS_PAGE_LIMIT = 200;
+
+interface FetchedChannel {
+  channel: SlackTextChannel;
+  isMember: boolean;
+  isPrivate: boolean;
+}
 
 /**
  * SlackLogger implementation for logging messages to Slack channels.
@@ -16,10 +23,16 @@ const CONVERSATIONS_PAGE_LIMIT = 200;
  * This class extends the abstract Logger class to provide Slack-specific functionality
  * for creating and managing text channels within a Slack workspace through the Web API.
  *
- * **Required Bot Token Scopes:**
- * - `chat:write`, `chat:write.public`
- * - `channels:read`, `channels:manage`, `channels:join`
- * - `groups:read`, `groups:write` (only when `privateChannels` is enabled)
+ * **Bot Token Scopes:**
+ * - Sempre: `chat:write`, `chat:write.public`, `channels:read`, `channels:manage`, `channels:join`
+ * - Canais privados: `groups:read`, `groups:write`
+ * - Convidar membros: `channels:write.invites` (públicos), `groups:write.invites` (privados)
+ * - `inviteOwner` / `everyone`: `users:read`
+ * - Membros por e-mail: `users:read.email`
+ *
+ * Canais criados por um bot têm apenas o bot como membro. Por isso, por padrão,
+ * o Primary Owner do workspace é convidado para todo canal (`inviteOwner: "primary"`).
+ * Use `members`, `everyone` e `inviteOwner` (globais ou por canal) para controlar quem entra.
  *
  * Unlike the TelegramLogger, no local memory is needed: on every start the
  * logger lists the workspace channels and rebuilds the mapping, like the DiscordLogger.
@@ -33,10 +46,12 @@ const CONVERSATIONS_PAGE_LIMIT = 200;
  * ```typescript
  * const logger = await SlackLogger.getInstance({
  *   APIToken: process.env.SLACK_BOT_TOKEN!,
- *   internalLogs: true,
+ *   members: ["tech-lead@empresa.com"],
  *   channelBots: [
- *     { name: 'api', type: ChannelType.BotError },
- *     { name: 'deploy', type: ChannelType.BotNotification }
+ *     // público e com todo o workspace dentro
+ *     { name: 'deploy', type: ChannelType.BotNotification, slack: { everyone: true } },
+ *     // privado, só com quem for listado
+ *     { name: 'api', type: ChannelType.BotError, slack: { private: true, members: ['U0123ABCD'] } }
  *   ]
  * });
  *
@@ -46,7 +61,7 @@ const CONVERSATIONS_PAGE_LIMIT = 200;
 export class SlackLogger extends Logger {
   private _clientInstance: WebClient;
   private _teamId: string;
-  private _privateChannels: boolean;
+  private _members: SlackMembers;
   private _destroyed = false;
 
   private constructor(
@@ -54,23 +69,20 @@ export class SlackLogger extends Logger {
     channelsToCreate: AT.CreationChannels,
     client: WebClient,
     teamId: string,
-    privateChannels: boolean,
+    members: SlackMembers,
     internalLogs?: boolean,
   ) {
     super(AT.Platforms.SLACK, existingChannels, internalLogs);
     this._clientInstance = client;
     this._teamId = teamId;
-    this._privateChannels = privateChannels;
+    this._members = members;
     this.processChannels(channelsToCreate);
   }
 
-  static async getInstance({
-    APIToken,
-    channelBots,
-    internalLogs,
-    teamId,
-    privateChannels = false,
-  }: ST.GetInstanceArgsSlack): Promise<SlackLogger> {
+  static async getInstance(
+    args: ST.GetInstanceArgsSlack,
+  ): Promise<SlackLogger> {
+    const { APIToken, channelBots, internalLogs, teamId, onMemberError } = args;
     const client = new WebClient(APIToken);
 
     const auth = await client.auth.test().catch((err) => {
@@ -85,22 +97,36 @@ export class SlackLogger extends Logger {
       );
     }
 
-    const wantedChannels = channelBots ?? defaultBotChannels;
-    const wantedNames = new Set(
-      wantedChannels.map((channel) => this.buildChannelName(channel)),
+    const members = new SlackMembers(
+      client,
+      auth.user_id ?? "",
+      args,
+      onMemberError,
     );
 
-    const existingChannels = await this.fetchChannels(
+    const wanted = (channelBots ?? defaultBotChannels).map(
+      (props: ST.SlackChannelProps) => ({
+        props,
+        name: this.buildChannelName(props),
+        options: members.resolveOptions(props.slack),
+      }),
+    );
+    const includePrivate = wanted.some((w) => w.options.private);
+
+    const fetched = await this.fetchChannels(
       client,
       workspaceId,
-      privateChannels,
-      wantedNames,
+      includePrivate,
+      new Set(wanted.map((w) => w.name)),
     );
+    const fetchedByName = new Map(fetched.map((f) => [f.channel.name, f]));
 
-    const existingNames = new Set(existingChannels.map((ch) => ch.name));
-    const channelsToCreate = wantedChannels.filter(
-      (channel) => !existingNames.has(this.buildChannelName(channel)),
-    );
+    for (const w of wanted) {
+      const existing = fetchedByName.get(w.name);
+      if (existing && w.options.syncMembers) {
+        await this.syncExistingChannel(client, members, existing, w.options);
+      }
+    }
 
     console.log(
       utils.trimText(`
@@ -113,25 +139,30 @@ export class SlackLogger extends Logger {
     );
 
     return new SlackLogger(
-      existingChannels,
+      fetched.map((f) => f.channel),
       {
-        channels: channelsToCreate,
+        channels: wanted
+          .filter((w) => !fetchedByName.has(w.name))
+          .map((w) => w.props),
         groupId: workspaceId,
       },
       client,
       workspaceId,
-      privateChannels,
+      members,
       internalLogs,
     );
   }
 
   async createChannel(
-    options: AT.CreateTextChannelProps,
+    props: AT.CreateTextChannelProps,
   ): Promise<AT.TextChannel> {
-    const name = SlackLogger.buildChannelName(options);
+    const options = this._members.resolveOptions(
+      (props as ST.SlackChannelProps).slack,
+    );
+    const name = SlackLogger.buildChannelName(props);
 
     const { channel } = await this._clientInstance.conversations
-      .create({ name, is_private: this._privateChannels })
+      .create({ name, is_private: options.private })
       .catch((err) => {
         throw toSlackBotError(err);
       });
@@ -143,13 +174,15 @@ export class SlackLogger extends Logger {
       );
     }
 
-    if (options.description) {
+    if (props.description) {
       await this._clientInstance.conversations
-        .setPurpose({ channel: channel.id, purpose: options.description })
+        .setPurpose({ channel: channel.id, purpose: props.description })
         .catch(() =>
           this.internalLog(`Não foi possível definir a descrição de ${name}`),
         );
     }
+
+    await this._members.ensureMembers(channel.id, name, options, true);
 
     return new SlackTextChannel(
       this._clientInstance,
@@ -157,7 +190,7 @@ export class SlackLogger extends Logger {
       name,
       utils.channelTypeResolve(name),
       this._teamId,
-      options.description,
+      props.description,
     );
   }
 
@@ -165,16 +198,45 @@ export class SlackLogger extends Logger {
     return sanitizeSlackChannelName(utils.generateChannelName(props));
   }
 
+  /** Garante os membros de um canal que já existia antes deste start. */
+  private static async syncExistingChannel(
+    client: WebClient,
+    members: SlackMembers,
+    { channel, isMember, isPrivate }: FetchedChannel,
+    options: ST.ResolvedSlackChannelOptions,
+  ): Promise<void> {
+    if (!isMember) {
+      if (isPrivate) {
+        members.report(
+          new BotError(
+            `O bot não está no canal privado #${channel.name}. Convide com /invite @seu-app.`,
+            AT.BotErrorModules.Instance,
+          ),
+        );
+        return;
+      }
+
+      try {
+        await client.conversations.join({ channel: channel.id });
+      } catch (err) {
+        members.report(toSlackBotError(err), `Não foi possível entrar em #${channel.name}`);
+        return;
+      }
+    }
+
+    await members.ensureMembers(channel.id, channel.name, options, false);
+  }
+
   private static async fetchChannels(
     client: WebClient,
     teamId: string,
-    privateChannels: boolean,
+    includePrivate: boolean,
     wantedNames: Set<string>,
-  ): Promise<SlackTextChannel[]> {
-    const types = privateChannels
+  ): Promise<FetchedChannel[]> {
+    const types = includePrivate
       ? "public_channel,private_channel"
       : "public_channel";
-    const channels: SlackTextChannel[] = [];
+    const channels: FetchedChannel[] = [];
 
     try {
       const pages = client.paginate("conversations.list", {
@@ -188,8 +250,8 @@ export class SlackLogger extends Logger {
           if (!ch.id || !ch.name) continue;
           if (!ch.is_member && !wantedNames.has(ch.name)) continue;
 
-          channels.push(
-            new SlackTextChannel(
+          channels.push({
+            channel: new SlackTextChannel(
               client,
               ch.id,
               ch.name,
@@ -197,7 +259,9 @@ export class SlackLogger extends Logger {
               teamId,
               ch.purpose?.value,
             ),
-          );
+            isMember: !!ch.is_member,
+            isPrivate: !!ch.is_private,
+          });
         }
       }
     } catch (err) {

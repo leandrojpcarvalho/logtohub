@@ -1,0 +1,8 @@
+{
+  // Scripts manuais (fora do build). Herda os aliases do tsconfig principal.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../src"]
+}

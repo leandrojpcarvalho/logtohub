@@ -20,7 +20,8 @@
     "build": "tsc && tsc-alias",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
-    "test": "jest"
+    "test": "jest",
+    "test:slack": "tsx scripts/slack-test.ts"
   },
   "keywords": [
     "logging",

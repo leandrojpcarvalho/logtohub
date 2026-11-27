@@ -22,6 +22,16 @@ const friendlyMessages: Record<string, string> = {
   ratelimited:
     "Limite de requisições do Slack atingido. Tente novamente em instantes.",
   msg_too_long: "A mensagem excede o tamanho máximo aceito pelo Slack.",
+  users_not_found:
+    "Nenhum usuário encontrado com esse e-mail (ou o usuário está desativado).",
+  user_not_found: "Um dos IDs de usuário informados não existe no workspace.",
+  cant_invite: "O Slack não permitiu convidar esse usuário para o canal.",
+  cant_invite_self: "O bot não pode convidar a si mesmo.",
+  user_is_restricted:
+    "O usuário é guest e não pode ser adicionado a esse canal.",
+  no_permission:
+    "O bot não tem permissão para essa ação. Verifique os scopes e se ele está no canal.",
+  invitee_cant_see_channel: "O usuário convidado não tem acesso a esse canal.",
 };
 
 export default friendlyMessages;

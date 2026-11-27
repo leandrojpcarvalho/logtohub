@@ -378,6 +378,185 @@ O LogToHub também suporta Slack, usando a Web API oficial (`@slack/web-api`). C
 
 #### Criando o app no Slack
 
+O jeito mais rápido é criar o app a partir de um manifest, que já traz todos os scopes:
+
+1. Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em **Create New App** e escolha **From a manifest** (ou **Paste a manifest**).
+2. Escolha o workspace e cole o manifest abaixo.
+3. Clique em **Create** e depois em **Install to Workspace**.
+4. Em **OAuth & Permissions**, copie o **Bot User OAuth Token** (`xoxb-...`).
+
+```json
+{
+  "display_information": { "name": "LogToHub" },
+  "features": { "bot_user": { "display_name": "LogToHub", "always_online": false } },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write", "chat:write.public",
+        "channels:read", "channels:manage", "channels:join", "channels:write.invites",
+        "groups:read", "groups:write", "groups:write.invites",
+        "users:read", "users:read.email"
+      ]
+    }
+  },
+  "settings": { "org_deploy_enabled": false, "socket_mode_enabled": false, "token_rotation_enabled": false }
+}
+```
+
+Se preferir, remova os scopes das funções que não vai usar:
+
+| Scope | Para que serve | Necessário quando |
+| --- | --- | --- |
+| `chat:write`, `chat:write.public` | Enviar mensagens | Sempre |
+| `channels:read`, `channels:manage`, `channels:join` | Listar, criar e entrar em canais públicos | Sempre |
+| `groups:read`, `groups:write` | Listar e criar canais privados | `private: true` |
+| `channels:write.invites` | Convidar pessoas para canais públicos | `members`, `everyone` ou `inviteOwner` |
+| `groups:write.invites` | Convidar pessoas para canais privados | Idem, em canais privados |
+| `users:read` | Encontrar o dono do workspace e listar os membros | `inviteOwner` ou `everyone` |
+| `users:read.email` | Encontrar usuários pelo e-mail | `members` com e-mail |
+
+Depois de adicionar um scope, reinstale o app no workspace.
+
+#### Uso básico
+
+```typescript
+import { SlackLogger, ChannelType } from 'logtohub';
+
+const logger = await SlackLogger.getInstance({
+  APIToken: process.env.SLACK_BOT_TOKEN!,
+  internalLogs: true,
+  channelBots: [
+    { name: "api", type: ChannelType.BotError },
+    { name: "deploy", type: ChannelType.BotNotification },
+  ],
+});
+
+await logger.awaitReady();
+
+await logger.log({
+  channel: { type: ChannelType.BotError },
+  message: { error: "Falha ao conectar no banco" },
+});
+```
+
+Os canais acima são criados como `#bot-error-api` e `#bot-notification-deploy`. Nas próximas inicializações, eles são reaproveitados.
+
+#### Quem entra nos canais
+
+No Slack, um canal criado por um bot começa só com o bot. Para que as pessoas vejam os canais na barra lateral, a lib convida membros automaticamente:
+
+- Por padrão, o **Primary Owner** do workspace entra em todo canal (`inviteOwner: "primary"`).
+- `members` aceita IDs de usuário (`U0123ABCD`) ou e-mails.
+- `everyone: true` convida todos os membros ativos do workspace. Bots nunca são convidados, e guests só entram com `includeGuests: true`.
+- Em canais que já existem, quem estiver faltando é convidado a cada inicialização (`syncMembers`). Assim, quem entrar no workspace depois também passa a ser incluído.
+
+Toda opção pode ser definida globalmente e sobrescrita por canal em `slack`. Os `members` globais e os do canal são somados.
+
+```typescript
+const logger = await SlackLogger.getInstance({
+  APIToken: process.env.SLACK_BOT_TOKEN!,
+  // vale para todos os canais
+  members: ["tech-lead@empresa.com"],
+  inviteOwner: "admins",
+  channelBots: [
+    // público e com todo o workspace dentro
+    {
+      name: "deploy",
+      type: ChannelType.BotNotification,
+      slack: { everyone: true },
+    },
+    // privado, só com o time de backend (+ tech lead e admins)
+    {
+      name: "api",
+      type: ChannelType.BotError,
+      slack: { private: true, members: ["U0123ABCD", "dev@empresa.com"] },
+    },
+    // público, sem convidar ninguém
+    {
+      name: "auditoria",
+      type: ChannelType.Common,
+      slack: { inviteOwner: false, members: [], syncMembers: false },
+    },
+  ],
+});
+```
+
+Se um convite falhar (e-mail inexistente, scope faltando, guest em canal restrito), o comportamento é definido por `onMemberError`: `"warn"` (aviso no console e segue), `"throw"` (lança um `BotError`) ou `"ignore"`.
+
+Para notificar alguém em uma mensagem, use as menções do Slack no texto: `<!channel>`, `<!here>` ou `<@U0123ABCD>`.
+
+**Limitações do Slack:**
+- O bot não consegue entrar sozinho em canais privados que já existem. Convide-o com `/invite @seu-app`.
+- Não existe um "entrar automaticamente para todos" via bot. Isso só é possível com os canais padrão do plano Enterprise (`admin.teams.settings.setDefaultChannels`, com token de admin).
+
+#### Opções
+
+| Opção | Tipo | Padrão | Descrição |
+| --- | --- | --- | --- |
+| `APIToken` | `string` | | Bot User OAuth Token (`xoxb-...`) |
+| `channelBots` | `SlackChannelProps[]` | canais de notificação e erro | Canais a criar ou mapear |
+| `internalLogs` | `boolean` | `false` | Exibe logs internos no console |
+| `teamId` | `string` | | Valida se o token pertence a esse workspace |
+| `privateChannels` | `boolean` | `false` | Padrão de `private` para os canais |
+| `members` | `string[]` | `[]` | IDs ou e-mails convidados para todos os canais |
+| `everyone` | `boolean` | `false` | Padrão de `everyone` para os canais |
+| `includeGuests` | `boolean` | `false` | Inclui guests quando `everyone` está ativo |
+| `inviteOwner` | `"primary" \| "owners" \| "admins" \| false` | `"primary"` | Quem do time de donos entra nos canais |
+| `syncMembers` | `boolean` | `true` | Convida quem estiver faltando em canais que já existem |
+| `onMemberError` | `"warn" \| "throw" \| "ignore"` | `"warn"` | O que fazer quando um convite falhar |
+
+Opções por canal (`channelBots[].slack`): `private`, `members`, `everyone`, `includeGuests`, `inviteOwner` e `syncMembers`.
+
+#### Testando com um workspace real
+
+O repositório tem um script de teste manual que cria canais públicos e privados, convida membros e envia mensagens de exemplo. Use um workspace só para testes: o plano gratuito do Slack é suficiente.
+
+```bash
+SLACK_BOT_TOKEN=xoxb-... npm run test:slack
+
+# opcional: testa o convite por e-mail ou ID no canal privado
+SLACK_BOT_TOKEN=xoxb-... SLACK_TEST_MEMBERS="voce@email.com" npm run test:slack
+```
+
+Nunca coloque o token em arquivos versionados.
+
+#### Destruindo a Instância
+
+```typescript
+await logger.destroy();
+```
+
+#### Armazenamento Customizado
+
+Por padrão, o TelegramLogger usa um arquivo local para persistir os mapeamentos de tópicos. Você pode implementar seu próprio armazenamento:
+
+```typescript
+interface TelegramMemory {
+  addTopic(topicName: string, topicId: number): Promise<void>;
+  getAllTopics(): Promise<Record<number, string>>;
+  getTopicIdByName(topicName: string): Promise<number | null>;
+  removeTopic(topicId: number): Promise<void>;
+  clearTopics(): Promise<void>;
+}
+
+// Exemplo com Redis
+class RedisTelegramMemory implements TelegramMemory {
+  // implemente os métodos...
+}
+
+const logger = await TelegramLogger.getInstance({
+  APIToken: process.env.TELEGRAM_BOT_TOKEN!,
+  guildId: process.env.TELEGRAM_GROUP_ID!,
+  memory: new RedisTelegramMemory(redisClient),
+});
+```
+
+### Slack
+
+O LogToHub também suporta Slack, usando a Web API oficial (`@slack/web-api`). Cada canal de log vira um canal do workspace.
+
+#### Criando o app no Slack
+
 1. Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em **Create New App** e escolha **From scratch**.
 2. Em **OAuth & Permissions**, adicione os **Bot Token Scopes**:
    - `chat:write`: enviar mensagens
