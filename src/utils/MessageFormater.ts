@@ -1,4 +1,4 @@
-import { LogLike } from '../types';
+import { LogLike } from '@domain/index.js';
 
 /**
  * MessageFormatter is responsible for formatting log messages into a string representation.

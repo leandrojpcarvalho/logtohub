@@ -1,10 +1,10 @@
 import { ConversationsListResponse, WebClient } from "@slack/web-api";
-import { Logger } from "../AbstractLogger.js";
-import * as AT from "../types/index.js";
+import { Logger } from "@core";
+import * as AT from "@domain/index.js";
 import * as ST from "./types.js";
-import * as utils from "../utils/index.js";
-import { BotError } from "../utils/index.js";
-import { defaultBotChannels } from "../channels/index.js";
+import * as utils from "@utils/index.js";
+import { BotError } from "@utils/index.js";
+import { defaultBotChannels } from "@channels/index.js";
 import { SlackTextChannel } from "./SlackTextChannel.js";
 import { sanitizeSlackChannelName, toSlackBotError } from "./utils.js";
 

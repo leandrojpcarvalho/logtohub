@@ -1,6 +1,6 @@
-import { ChannelType, LogLike, TextChannel } from "../types";
+import { ChannelType, LogLike, TextChannel } from "@domain/index.js";
 import { Bot } from "grammy";
-import { convertDataToString } from "../utils";
+import { convertDataToString } from "@utils/index.js";
 import { InternalForumTopic } from "./types";
 
 export class TelegramTextChannel implements TextChannel {

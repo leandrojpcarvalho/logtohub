@@ -7,13 +7,13 @@ import {
 } from "discord.js";
 
 import { discordChannelAdapter } from "./factory.js";
-import * as utils from "../utils";
-import * as Types from "../types/index.js";
-import { Logger } from "../AbstractLogger.js";
+import * as utils from "@utils/index.js";
+import * as Types from "@domain/index.js";
+import { Logger } from "@core";
 
-import { defaultBotChannels } from "../channels/index.js";
-import { CreateTextChannelProps } from "../types/index.js";
-import { BotError } from "../utils/BotError.js";
+import { defaultBotChannels } from "@channels/index.js";
+import { CreateTextChannelProps } from "@domain/index.js";
+import { BotError } from "@utils/BotError.js";
 
 interface IsValidChannelArgs {
   channel: NonThreadGuildBasedChannel | null;

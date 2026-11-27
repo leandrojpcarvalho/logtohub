@@ -1,4 +1,4 @@
-import { ChannelType, CreateTextChannelProps } from "../types";
+import { ChannelType, CreateTextChannelProps } from "@domain/index.js";
 
 function capitalizeFirstLetter(
   str: string[] | string,

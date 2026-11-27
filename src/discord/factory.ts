@@ -15,7 +15,7 @@ import {
   Channel,
   VoiceChannel,
 } from "../index.js";
-import { MessageFormatter } from "../utils/MessageFormater.js";
+import { MessageFormatter } from "@utils/MessageFormater.js";
 
 class InternalTextChannel implements TextChannel {
   constructor(

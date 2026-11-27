@@ -4,7 +4,7 @@ import {
   ChannelType,
   LogLike,
   TextChannel,
-} from "../types/index.js";
+} from "@domain/index.js";
 import {
   formatSlackMessage,
   getSlackErrorCode,

@@ -1,7 +1,7 @@
 import { WebAPIPlatformError } from "@slack/web-api";
-import { BotErrorModules, LogLike } from "../types/index.js";
+import { BotErrorModules, LogLike } from "@domain/index.js";
 import friendlyMessages from "./friendlyMessages.js";
-import { BotError } from "../utils/index.js";
+import { BotError } from "@utils/index.js";
 
 const SLACK_CHANNEL_NAME_MAX = 80;
 const CODE_FENCE = "```";

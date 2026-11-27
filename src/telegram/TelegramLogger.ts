@@ -1,12 +1,12 @@
 import { Bot } from "grammy";
-import { Logger } from "../AbstractLogger";
-import * as AT from "../types";
+import { Logger } from "@core";
+import * as AT from "@domain/index.js";
 import * as TT from "./types";
 import { TelegramLocalMemory } from "./TelegramLocalMemory";
-import * as utils from "../utils";
-import { BotError } from "../utils";
+import * as utils from "@utils/index.js";
+import { BotError } from "@utils/index.js";
 import { TelegramTextChannel } from "./TelegramTextChannel";
-import { defaultBotChannels } from "../channels/index.js";
+import { defaultBotChannels } from "@channels/index.js";
 
 /**
  * TelegramLogger implementation for logging messages to Telegram channels.
